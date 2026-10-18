@@ -20,6 +20,9 @@ capability, so one drag puts the file into the message.
   - prefers a path relative to the conversation workspace
   - inserts a file-reference chip through `shell.addFiles()`
 - native file drags (`dataTransfer.files`) keep DSH's existing upload path
+- on DSH Desktop, the preload's `__DSH_DESKTOP_FILE_PATH__.getPathForFile` is bridged to the composer's
+  `__DSH_HOST_PATHS__.pathFor`; the Host's `addFiles` can then create `@path` references for non-image
+  files instead of uploading a copy
 - drops on another conversation's composer are ignored
 
 ## Implementation
@@ -64,7 +67,7 @@ node scripts/check.mjs
 
 The zero-dependency suite covers manifest/patch/locale/icon, draggable sidebar rows, path export,
 relative reference insertion, native file pass-through, cross-session protection, dragover and
-listener cleanup — 13 checks.
+listener cleanup — 15 checks.
 
 ## License
 

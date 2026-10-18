@@ -94,6 +94,34 @@ window.__ModuleLoader__.load({
       return path
     }
 
+    /**
+     * DSH Desktop exposes `__DSH_DESKTOP_FILE_PATH__.getPathForFile` from the
+     * Electron preload, but the composer reads `__DSH_HOST_PATHS__.pathFor`.
+     * Wire the two names when the shell provides the former and no other plugin
+     * already claimed the latter. This makes the Host's own `addFiles` branch
+     * produce @path references for non-image files instead of uploads.
+     * @returns {boolean} whether this plugin installed the bridge.
+     */
+    function installDesktopPathBridge() {
+      try {
+        const desktop = globalThis.__DSH_DESKTOP_FILE_PATH__
+        if (desktop === null || desktop === undefined || typeof desktop.getPathForFile !== 'function') return false
+        if (globalThis.__DSH_HOST_PATHS__ !== null && globalThis.__DSH_HOST_PATHS__ !== undefined) return false
+        globalThis.__DSH_HOST_PATHS__ = {
+          pathFor: (file) => {
+            try {
+              return desktop.getPathForFile(file) ?? ''
+            } catch {
+              return ''
+            }
+          },
+        }
+        return true
+      } catch {
+        return false
+      }
+    }
+
     /** @param {string} path @returns {string} path inside a reference mention. */
     function mentionOf(path) {
       return /\s/u.test(path) ? '@"' + path + '"' : '@' + path
@@ -164,6 +192,7 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      installDesktopPathBridge()
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'sidebar-file-drop: dictionaries')
       ctx.effect(() => ctx.slots.register({
         name: 'conversation.input.right',

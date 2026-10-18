@@ -19,6 +19,8 @@
   - 优先转换为相对于会话工作区的路径
   - 通过 `shell.addFiles()` 插入文件引用 chip
 - 原生文件拖拽（`dataTransfer.files`）交给 DSH 原有上传路径，不拦截
+- **DSH Desktop** 会把 preload 的 `__DSH_DESKTOP_FILE_PATH__.getPathForFile` 接到 composer 的
+  `__DSH_HOST_PATHS__.pathFor`；官方 `addFiles` 因此能把拖入的非图片文件写成 `@路径`，而不是上传副本
 - 拖到其他会话的 composer 不处理
 
 ## 实现
@@ -62,7 +64,7 @@ node scripts/check.mjs
 ```
 
 零依赖测试覆盖清单/patch/locale/icon、侧栏行可拖拽化、路径导出、相对路径引用、原生文件放行、
-跨会话保护、dragover 和监听清理，共 13 项检查。
+跨会话保护、dragover 和监听清理，共 15 项检查。
 
 ## 许可证
 

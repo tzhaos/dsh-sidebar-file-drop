@@ -1,6 +1,6 @@
 {
   "name": "dsh-sidebar-file-drop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Drag files from the DSH sidebar file tree into the composer as file references.",
   "type": "module",

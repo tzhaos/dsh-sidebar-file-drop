@@ -92,7 +92,7 @@ function dragEvent(target, dataTransfer) {
   }
 }
 
-function scenario() {
+function scenario(options = {}) {
   const listeners = new Map()
   const cleanups = []
   const added = []
@@ -120,6 +120,12 @@ function scenario() {
     window: { __ModuleLoader__: { load(definition) { loaded = definition } } },
     document,
     console,
+  }
+  if (options.desktopPath !== undefined) {
+    sandbox.__DSH_DESKTOP_FILE_PATH__ = { getPathForFile: () => options.desktopPath }
+  }
+  if (options.existingSeam === true) {
+    sandbox.__DSH_HOST_PATHS__ = { pathFor: () => 'existing' }
   }
   vm.runInNewContext(clientSource, sandbox, { filename: 'client.js' })
   const plugin = loaded.factory((id) => {
@@ -152,13 +158,13 @@ function scenario() {
   const injected = registration.options.inject('session-a')
   const t = translator(locale.dicts.zh)
   registration.component({ ...injected, t })
-  return { listeners, cleanups, added, notices, t, injected }
+  return { listeners, cleanups, added, notices, t, injected, sandbox }
 }
 
 // Static contract
 await check('manifest declares a DSH bundle and web client half', () => {
   assert.equal(manifest.name, 'dsh-sidebar-file-drop')
-  assert.equal(manifest.version, '1.0.0')
+  assert.equal(manifest.version, '1.1.0')
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.main, 'index.js')
   assert.equal(manifest.exports['./client'], './client.js')
@@ -204,6 +210,17 @@ await check('icon is a valid accent SVG', () => {
 })
 
 // Behaviour
+await check('desktop file path bridge feeds the composer host-path seam', () => {
+  const applied = scenario({ desktopPath: 'C:\\repo\\src\\client.js' })
+  assert.equal(typeof applied.sandbox.__DSH_HOST_PATHS__?.pathFor, 'function')
+  assert.equal(applied.sandbox.__DSH_HOST_PATHS__.pathFor({}), 'C:\\repo\\src\\client.js')
+})
+
+await check('an existing host-path seam is not overwritten', () => {
+  const applied = scenario({ desktopPath: 'C:\\repo\\src\\client.js', existingSeam: true })
+  assert.equal(applied.sandbox.__DSH_HOST_PATHS__.pathFor({}), 'existing')
+})
+
 await check('mousedown on a path-bearing sidebar row makes it draggable', () => {
   const applied = scenario()
   const sidebar = sidebarFixture('C:\\repo\\src\\client.js')
