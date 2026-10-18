@@ -1,0 +1,60 @@
+{
+  "name": "dsh-sidebar-file-drop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Drag files from the DSH sidebar file tree into the composer as file references.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "node scripts/check.mjs"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-api-session-controller"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "file",
+    "drag",
+    "drop",
+    "composer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tzhaos/dsh-sidebar-file-drop.git"
+  },
+  "homepage": "https://github.com/tzhaos/dsh-sidebar-file-drop#readme",
+  "bugs": {
+    "url": "https://github.com/tzhaos/dsh-sidebar-file-drop/issues"
+  }
+}

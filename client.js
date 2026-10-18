@@ -1,0 +1,243 @@
+/**
+ * Sidebar File Drop — browser half of `dsh-sidebar-file-drop`.
+ *
+ * A file tree in the sidebar often knows the absolute path of every row but
+ * has no bridge to the composer. This plugin makes path-bearing sidebar rows
+ * draggable and accepts the dropped path on the composer, where it becomes a
+ * normal file-reference chip through the retained input shell.
+ *
+ * No file bytes are copied; the reference points at the existing file.
+ *
+ * @module dsh-sidebar-file-drop/client
+ */
+
+window.__ModuleLoader__.load({
+  id: 'dsh-sidebar-file-drop',
+  factory(require) {
+    const React = require('react')
+    const { useEffect } = React
+
+    const NS = 'sidebarFileDrop'
+
+    const zh = {
+      'toast.failed': '无法把文件加入输入框',
+      'toast.noPath': '没有找到该文件的完整路径',
+    }
+
+    const en = {
+      'toast.failed': 'Could not add the file to the composer',
+      'toast.noPath': 'Could not resolve the full path of this file',
+    }
+
+    /** A Windows drive path or a POSIX absolute path inside surrounding text. */
+    const PATH_PATTERN = /(?:[A-Za-z]:[\\/][^"'\r\n<>|?*]+|(?:^|[\s(])(?:\/[^"'\r\n]+))/u
+
+    /**
+     * Extract the first absolute path from a title/label/value string.
+     * @param {string} value - candidate attribute.
+     * @returns {string|null} trimmed path.
+     */
+    function pathIn(value) {
+      if (typeof value !== 'string' || value.trim() === '') return null
+      const match = PATH_PATTERN.exec(value)
+      if (match === null) return null
+      let path = match[1] ?? match[0]
+      path = path.trim().replace(/^[\s(]+/, '')
+      if (path === '' || /^https?:/i.test(path)) return null
+      return path.replace(/[.,;:)\]]+$/, '')
+    }
+
+    /**
+     * Find a path from a row's data attributes or accessible title.
+     * @param {unknown} target - event target.
+     * @returns {string|null} path.
+     */
+    function pathOf(target) {
+      if (target === null || target === undefined || typeof target !== 'object') return null
+      let node = target
+      for (let depth = 0; depth < 5 && node !== null && node !== undefined; depth += 1) {
+        for (const attr of ['data-path', 'data-file-path', 'data-workspace-path', 'title', 'aria-label']) {
+          const value = node.getAttribute?.(attr)
+          const path = pathIn(value)
+          if (path !== null) return path
+        }
+        node = node.parentElement ?? null
+      }
+      return null
+    }
+
+    /** @param {Element} element @returns {boolean} whether it is in a sidebar. */
+    function inSidebar(element) {
+      return element?.closest?.('[data-sidebar-right-session], aside, [data-sidebar], [class*="sidebar" i]') !== null
+        && element?.closest?.('[data-sidebar-right-session], aside, [data-sidebar], [class*="sidebar" i]') !== undefined
+    }
+
+    /** @param {DataTransfer} transfer @returns {string|null} dropped path. */
+    function droppedPath(transfer) {
+      if (transfer === null || transfer === undefined) return null
+      if ((transfer.files?.length ?? 0) > 0) return null
+      for (const type of ['text/plain', 'text/uri-list']) {
+        const value = typeof transfer.getData === 'function' ? transfer.getData(type) : ''
+        const path = pathIn(value)
+        if (path !== null) return path
+      }
+      return null
+    }
+
+    /** @param {string} path @param {string|undefined} cwd @returns {string} relative or absolute path. */
+    function relativeTo(path, cwd) {
+      if (typeof cwd !== 'string' || cwd === '') return path
+      const normalizedCwd = cwd.replace(/[\\/]+$/, '')
+      if (path.startsWith(normalizedCwd + '\\') || path.startsWith(normalizedCwd + '/')) {
+        return path.slice(normalizedCwd.length + 1)
+      }
+      return path
+    }
+
+    /** @param {string} path @returns {string} path inside a reference mention. */
+    function mentionOf(path) {
+      return /\s/u.test(path) ? '@"' + path + '"' : '@' + path
+    }
+
+    /** @param {string} path @returns {string} final path segment. */
+    function labelOf(path) {
+      const trimmed = path.replace(/[\\/]+$/, '')
+      const index = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+      return trimmed.slice(index + 1) || trimmed
+    }
+
+    /**
+     * Invisible per-session layer: decorates sidebar rows, accepts drops.
+     * @param {object} props - session id, injected actions and translator.
+     * @returns {null} no React output.
+     */
+    function SidebarFileDropLayer({ sessionId, actions, t }) {
+      useEffect(() => {
+        const onMouseDown = (event) => {
+          const element = event.target
+          if (!inSidebar(element)) return
+          const path = pathOf(element)
+          if (path === null) return
+          const row = element.closest?.('[data-file-path], [data-path], [title], [aria-label]') ?? element
+          row.draggable = true
+        }
+        const onDragStart = (event) => {
+          if (!inSidebar(event.target)) return
+          const path = pathOf(event.target)
+          if (path === null) return
+          event.dataTransfer?.setData?.('text/plain', path)
+          event.dataTransfer?.setData?.('text/uri-list', 'file:///' + path.replace(/\\/g, '/'))
+          if (event.dataTransfer !== null && event.dataTransfer !== undefined) event.dataTransfer.effectAllowed = 'copy'
+        }
+        const composerOwner = (target) => {
+          const card = target?.closest?.('[data-composer-card]')
+          if (card === null || card === undefined) return null
+          return card.closest?.('[data-conversation-session]') ?? null
+        }
+        const onDragOver = (event) => {
+          if (composerOwner(event.target)?.getAttribute?.('data-conversation-session') !== sessionId) return
+          if (droppedPath(event.dataTransfer) === null) return
+          event.preventDefault?.()
+          if (event.dataTransfer !== null && event.dataTransfer !== undefined) event.dataTransfer.dropEffect = 'copy'
+        }
+        const onDrop = (event) => {
+          const target = event.target
+          if (composerOwner(target)?.getAttribute?.('data-conversation-session') !== sessionId) return
+          const path = droppedPath(event.dataTransfer)
+          if (path === null) return
+          event.preventDefault?.()
+          event.stopPropagation?.()
+          void actions.addPath(path, t('toast.failed'), t('toast.noPath'))
+        }
+        document.addEventListener('mousedown', onMouseDown, true)
+        document.addEventListener('dragstart', onDragStart, true)
+        document.addEventListener('dragover', onDragOver, true)
+        document.addEventListener('drop', onDrop, true)
+        return () => {
+          document.removeEventListener('mousedown', onMouseDown, true)
+          document.removeEventListener('dragstart', onDragStart, true)
+          document.removeEventListener('dragover', onDragOver, true)
+          document.removeEventListener('drop', onDrop, true)
+        }
+      }, [sessionId, actions, t])
+      return null
+    }
+
+    function apply(ctx) {
+      ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'sidebar-file-drop: dictionaries')
+      ctx.effect(() => ctx.slots.register({
+        name: 'conversation.input.right',
+        id: 'sidebar-file-drop.layer',
+        locale: NS,
+        inject: (sessionId) => {
+          let conversation
+          let shell
+          let cwd
+          try {
+            const scope = ctx.sessions.scope(sessionId)
+            conversation = scope?.get('conversation')
+            shell = conversation?.input?.for?.(scope)
+            cwd = ctx.sessions.list.getSnapshot()?.byId?.[sessionId]?.cwd
+          } catch {
+            conversation = undefined
+            shell = undefined
+          }
+          const notify = (text) => {
+            try {
+              shell?.notify?.('error', text)
+            } catch {
+              // A disposed scope loses the non-critical notice.
+            }
+          }
+          return {
+            sessionId,
+            actions: {
+              /**
+               * Insert a sidebar path as a file-reference chip.
+               * @param {string} rawPath - absolute dropped path.
+               * @param {string} failed - localized failure text.
+               * @param {string} noPath - localized missing-path text.
+               * @returns {Promise<boolean>} whether the reference was inserted.
+               */
+              addPath: async (rawPath, failed, noPath) => {
+                const path = pathIn(rawPath)
+                if (path === null) {
+                  notify(noPath)
+                  return false
+                }
+                if (typeof shell?.addFiles !== 'function') {
+                  notify(failed)
+                  return false
+                }
+                const relative = relativeTo(path, cwd)
+                const mention = mentionOf(relative)
+                const reference = {
+                  source: 'reference',
+                  ref: mention,
+                  label: labelOf(path),
+                  appearance: 'file',
+                  clipboardText: mention,
+                }
+                try {
+                  if (shell.addFiles([reference], []) !== true) {
+                    notify(failed)
+                    return false
+                  }
+                  return true
+                } catch {
+                  notify(failed)
+                  return false
+                }
+              },
+            },
+          }
+        },
+      }, SidebarFileDropLayer))
+    }
+
+    return {
+      inject: ['slots', 'locale', 'sessions'],
+      apply,
+    }
+  },
+})
