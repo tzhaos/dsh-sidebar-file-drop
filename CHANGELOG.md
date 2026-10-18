@@ -1,3 +1,14 @@
+## [1.1.1] - 2026-10-19
+
+### Fixed
+
+- Register the composer slot through `ctx.slots.inject`; a sessionless fresh boot no longer fails
+  activation before the host declares `conversation.input.right`.
+
+### Verified
+
+- `node scripts/check.mjs`: 15 checks green.
+
 # Changelog
 
 All notable changes to this project are documented in this file.

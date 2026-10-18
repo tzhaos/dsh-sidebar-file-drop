@@ -194,7 +194,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       installDesktopPathBridge()
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'sidebar-file-drop: dictionaries')
-      ctx.effect(() => ctx.slots.register({
+      ctx.effect(() => ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
         name: 'conversation.input.right',
         id: 'sidebar-file-drop.layer',
         locale: NS,
@@ -261,7 +261,7 @@ window.__ModuleLoader__.load({
             },
           }
         },
-      }, SidebarFileDropLayer))
+      }, SidebarFileDropLayer)))
     }
 
     return {
